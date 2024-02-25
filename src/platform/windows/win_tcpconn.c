@@ -1,5 +1,5 @@
 //
-// Copyright 2019 Staysail Systems, Inc. <info@staysail.tech>
+// Copyright 2024 Staysail Systems, Inc. <info@staysail.tech>
 // Copyright 2018 Capitar IT Group BV <info@capitar.com>
 // Copyright 2018 Devolutions <info@devolutions.net>
 //
@@ -26,7 +26,7 @@ tcp_recv_start(nni_tcp_conn *c)
 	unsigned i;
 	unsigned naiov;
 	nni_iov *aiov;
-	WSABUF * iov;
+	WSABUF  *iov;
 
 	if (c->closed) {
 		while ((aio = nni_list_first(&c->recv_aios)) != NULL) {
@@ -68,7 +68,7 @@ again:
 static void
 tcp_recv_cb(nni_win_io *io, int rv, size_t num)
 {
-	nni_aio *     aio;
+	nni_aio      *aio;
 	nni_tcp_conn *c = io->ptr;
 	nni_mtx_lock(&c->mtx);
 	if ((aio = nni_list_first(&c->recv_aios)) == NULL) {
@@ -80,17 +80,18 @@ tcp_recv_cb(nni_win_io *io, int rv, size_t num)
 		rv         = c->recv_rv;
 		c->recv_rv = 0;
 	}
-	nni_aio_list_remove(aio);
-	tcp_recv_start(c);
-	if (c->closed) {
-		nni_cv_wake(&c->cv);
-	}
-	nni_mtx_unlock(&c->mtx);
-
 	if ((rv == 0) && (num == 0)) {
 		// A zero byte receive is a remote close from the peer.
 		rv = NNG_ECONNSHUT;
 	}
+	nni_aio_list_remove(aio);
+	if (c->closed) {
+		nni_cv_wake(&c->cv);
+	} else {
+		tcp_recv_start(c);
+	}
+	nni_mtx_unlock(&c->mtx);
+
 	nni_aio_finish_sync(aio, rv, num);
 }
 
@@ -113,7 +114,12 @@ tcp_recv_cancel(nni_aio *aio, void *arg, int rv)
 static void
 tcp_recv(nni_tcp_conn *c, nni_aio *aio)
 {
+<<<<<<< HEAD
 	int rv;
+=======
+	nni_tcp_conn *c = arg;
+	int           rv;
+>>>>>>> 8e62028a (fixes #1543 Deadlock in nng_close(socket))
 
 	if (nni_aio_begin(aio) != 0) {
 		return;
@@ -145,7 +151,7 @@ tcp_send_start(nni_tcp_conn *c)
 	unsigned i;
 	unsigned naiov;
 	nni_iov *aiov;
-	WSABUF * iov;
+	WSABUF  *iov;
 
 	if (c->closed) {
 		while ((aio = nni_list_first(&c->send_aios)) != NULL) {
@@ -203,7 +209,7 @@ tcp_send_cancel(nni_aio *aio, void *arg, int rv)
 static void
 tcp_send_cb(nni_win_io *io, int rv, size_t num)
 {
-	nni_aio *     aio;
+	nni_aio      *aio;
 	nni_tcp_conn *c = io->ptr;
 	nni_mtx_lock(&c->mtx);
 	if ((aio = nni_list_first(&c->send_aios)) == NULL) {
@@ -259,13 +265,8 @@ tcp_close(void *arg)
 	nni_mtx_lock(&c->mtx);
 	if (!c->closed) {
 		c->closed = true;
-		if (!nni_list_empty(&c->recv_aios)) {
-			CancelIoEx((HANDLE) c->s, &c->recv_io.olpd);
-		}
-		if (!nni_list_empty(&c->send_aios)) {
-			CancelIoEx((HANDLE) c->s, &c->send_io.olpd);
-		}
 		if (c->s != INVALID_SOCKET) {
+			CancelIoEx((HANDLE) c->s, NULL); // cancel everything
 			shutdown(c->s, SD_BOTH);
 		}
 	}
