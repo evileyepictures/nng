@@ -114,12 +114,7 @@ tcp_recv_cancel(nni_aio *aio, void *arg, int rv)
 static void
 tcp_recv(nni_tcp_conn *c, nni_aio *aio)
 {
-<<<<<<< HEAD
 	int rv;
-=======
-	nni_tcp_conn *c = arg;
-	int           rv;
->>>>>>> 8e62028a (fixes #1543 Deadlock in nng_close(socket))
 
 	if (nni_aio_begin(aio) != 0) {
 		return;
